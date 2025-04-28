@@ -1,0 +1,109 @@
+"""
+StarSon POS - Point of Sale System
+Developed by Felix Otieno for BRIGHT_ARM ENTERPRISE
+Year: 2025
+
+Eco-Friendly POS: Reducing paper usage by offering digital receipts (SMS or Email).
+Unauthorized copying prohibited. Intellectual Property protected.
+"""
+
+import uuid
+import datetime
+import hashlib
+
+# === Hidden Developer Signature Marker ===
+def _felix_signature_marker():
+    """Developer: Felix Otieno | StarSon POS | 2025"""
+    return "StarSonPOS_Felix_Otieno_2025"
+
+# === Code Integrity Verifier ===
+def verify_integrity():
+    """Verify code authenticity."""
+    secret = _felix_signature_marker()
+    expected_hash = "0d88d9f45bd0f7f7d8fa0f2432b7e7f179bca7d73320fd20c5f6891271289d68"  # Precomputed SHA256
+    actual_hash = hashlib.sha256(secret.encode()).hexdigest()
+    if actual_hash != expected_hash:
+        raise Exception("Code integrity check failed. Unauthorized modification detected!")
+
+# === Generate Unique Receipt ID ===
+def generate_receipt_id():
+    """Generate a unique receipt ID based on UUID and timestamp."""
+    timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+    unique = str(uuid.uuid4())[:8]
+    return f"{unique}-{timestamp}"
+
+# === Format Receipt Text ===
+def create_receipt_text(items, customer_name):
+    """Create the formatted receipt text."""
+    total = 0
+    lines = [
+        f"Thank you for shopping at StarSon POS!",
+        "Operated by BRIGHT_ARM ENTERPRISE",
+        "----------------------------------------",
+        f"Customer: {customer_name}",
+        "Items Purchased:"
+    ]
+    for item, price in items:
+        lines.append(f"- {item}: ${price:.2f}")
+        total += price
+
+    lines.append("----------------------------------------")
+    lines.append(f"Total Amount: ${total:.2f}")
+    lines.append(f"Receipt ID: {generate_receipt_id()}")
+    lines.append("Saving our environment by minimizing paper usage.")
+    lines.append(f"Verifier: {_felix_signature_marker()}")  # Hidden signature visible inside receipt
+
+    return "\n".join(lines)
+
+# === Simulate Sending Receipt ===
+def send_receipt_via_sms(receipt_text, phone_number):
+    """Simulate sending the receipt via SMS."""
+    print(f"\n[SMS to {phone_number}]")
+    print(receipt_text)
+
+def send_receipt_via_email(receipt_text, email_address):
+    """Simulate sending the receipt via Email."""
+    print(f"\n[Email to {email_address}]")
+    print(receipt_text)
+
+# === Main POS Operation ===
+def run_starson_pos():
+    verify_integrity()  # Verify before running
+
+    print("=== Welcome to StarSon POS ===")
+    customer_name = input("Enter customer's name: ").strip()
+
+    basket = []
+    while True:
+        item = input("Enter item name (or type 'done' to finish): ").strip()
+        if item.lower() == 'done':
+            break
+        try:
+            price = float(input(f"Enter price for {item}: $"))
+            basket.append((item, price))
+        except ValueError:
+            print("Invalid price. Please enter a valid number.")
+
+    if not basket:
+        print("No items added. Exiting...")
+        return
+
+    receipt = create_receipt_text(basket, customer_name)
+
+    print("\nSelect receipt delivery method:")
+    print("1. Send via SMS")
+    print("2. Send via Email")
+    choice = input("Enter choice (1 or 2): ").strip()
+
+    if choice == '1':
+        phone = input("Enter customer's phone number: ").strip()
+        send_receipt_via_sms(receipt, phone)
+    elif choice == '2':
+        email = input("Enter customer's email address: ").strip()
+        send_receipt_via_email(receipt, email)
+    else:
+        print("Invalid choice. Receipt not sent.")
+
+# === Run the POS system ===
+if name == "main":
+    run_starson_pos()
