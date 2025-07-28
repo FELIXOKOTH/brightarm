@@ -10,7 +10,8 @@ products = [
     {"id": "001", "name": "Milk", "price": 50.0},
     {"id": "002", "name": "Bread", "price": 30.0},
     {"id": "003", "name": "Eggs", "price": 15.0},
-    {"id": "004", "name": "Soda", "price": 10.0}
+    {"id": "004", "name": "Soda", "price": 50.0}
+    {"id": "005", "name": "Apple", "price": 30.0}
 ]
 
 transactions = []
