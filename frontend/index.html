@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StarSon POS - Practical Prototype</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+  <style>
+    body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; }
+    #main-app, #admin-panel, #receipt-modal { max-width: 600px; padding: 20px; border: 1px solid #ccc; border-radius: 8px; margin-top: 20px; }
+    h1, h2 { text-align: center; }
+    #product-list, #cart-display { display: grid; gap: 10px; margin-top: 10px; }
+    .product-item, .cart-item { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+    .cart-item button { margin-left: 5px; }
+  </style>
+</head>
+<body>
+  <div id="admin-panel">
+    <h2>Admin Login</h2>
+    <input type="text" id="admin-user" placeholder="Username" />
+    <input type="password" id="admin-pass" placeholder="Password" />
+    <button onclick="adminLogin()">Login</button>
+  </div>
+
+  <div id="main-app" style="display: none;">
+    <div id="google_translate_element"></div>
+    <h1>StarSon POS System</h1>
+
+    <div id="product-list-container">
+      <h3>Available Products</h3>
+      <div id="product-list"></div>
+    </div>
+
+    <div id="cart-container">
+      <h3>Shopping Cart</h3>
+      <div id="cart-display"></div>
+      <p><strong>Total: KES <span id="cart-total">0</span></strong></p>
+    </div>
+
+    <label for="payment-method">Payment Method:</label>
+    <select id="payment-method">
+      <option value="cash">Cash</option>
+      <option value="mpesa">M-Pesa</option>
+      <option value="card">Card</option>
+      <option value="credit">Credit</option>
+      <option value="mixed">Mixed</option>
+    </select>
+
+    <button onclick="checkout()">Checkout</button>
+    <button onclick="exportInventory()">Export Inventory</button>
+
+    <div id="receipt-modal" style="display: none;">
+      <h2>Receipt</h2>
+      <div id="receipt-summary"></div>
+      <div style="text-align: center; margin-top: 20px;">
+          <img id="receipt-qr-img" style="width: 150px; height: 150px;" alt="QR Code" />
+          <p>Scan for transaction details</p>
+      </div>
+      <button onclick="downloadReceiptAsPDF()">Download PDF</button>
+    </div>
+  </div>
+
+  <script>
+    let cart = [];
+    let products = []; // To store products fetched from the backend
+
+    // Secure login using backend endpoint
+    async function adminLogin() {
+      const user = document.getElementById("admin-user").value;
+      const pass = document.getElementById("admin-pass").value;
+
+      try {
+        const response = await fetch('/admin_login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: user, password: pass })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          document.getElementById("admin-panel").style.display = "none";
+          document.getElementById("main-app").style.display = "block";
+          fetchProducts();
+        } else {
+          alert("Invalid credentials. Please try again.");
+        }
+      } catch (error) {
+        console.error("Login error:", error);
+        alert("An error occurred during login. Please try again.");
+      }
+    }
+
+    // New function to fetch products from the backend
+    async function fetchProducts() {
+        try {
+            const response = await fetch('/products');
+            products = await response.json();
+            const productListDiv = document.getElementById("product-list");
+            productListDiv.innerHTML = ''; // Clear existing list
+            products.forEach(product => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'product-item';
+                itemDiv.innerHTML = `<span>${product.name} (KES ${product.price})</span><button onclick="addToCart('${product.id}')">Add</button>`;
+                productListDiv.appendChild(itemDiv);
+            });
+        } catch (error) {
+            console.error('Failed to fetch products:', error);
+            alert('Could not load products. Please check the server.');
+        }
+    }
+
+    function addToCart(productId) {
+        const product = products.find(p => p.id === productId);
+        const existingItem = cart.find(item => item.id === productId);
+
+        if (existingItem) {
+            existingItem.qty++;
+        } else {
+            cart.push({ ...product, qty: 1 });
+        }
+        updateCartDisplay();
+    }
+
+    function updateCartDisplay() {
+        const cartDisplayDiv = document.getElementById("cart-display");
+        cartDisplayDiv.innerHTML = '';
+        let total = 0;
+
+        if (cart.length === 0) {
+            cartDisplayDiv.innerHTML = '<p>Cart is empty.</p>';
+        } else {
+            cart.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'cart-item';
+                itemDiv.innerHTML = `<span>${item.name} x${item.qty}</span><span>KES ${item.price * item.qty}</span>`;
+                cartDisplayDiv.appendChild(itemDiv);
+                total += item.price * item.qty;
+            });
+        }
+        document.getElementById("cart-total").textContent = total;
+    }
+
+    // Updated checkout function that sends cart data to backend
+    async function checkout() {
+        if (cart.length === 0) {
+            alert("Cart is empty. Please add items.");
+            return;
+        }
+
+        const paymentMethod = document.getElementById("payment-method").value;
+        const checkoutData = {
+            paymentMethod: paymentMethod,
+            items: cart
+        };
+
+        try {
+            const response = await fetch('/generate_receipt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(checkoutData)
+            });
+            const data = await response.json();
+
+            // Populate receipt modal with dynamic data
+            const receiptSummary = document.getElementById("receipt-summary");
+            receiptSummary.innerHTML = `
+                <p>Transaction ID: ${data.receipt_id}</p>
+                <p>Payment Method: ${data.payment_method}</p>
+                <p>Items:</p>
+                <ul>
+                    ${data.items.map(item => `<li>${item.name} x${item.qty} - KES ${item.price * item.qty}</li>`).join('')}
+                </ul>
+                <p><strong>Total: KES ${data.total}</strong></p>
+            `;
+            document.getElementById("receipt-qr-img").src = data.qr_img;
+            document.getElementById("receipt-modal").style.display = "block";
+
+            // Reset the cart after successful checkout
+            cart = [];
+            updateCartDisplay();
+        } catch (error) {
+            console.error("Checkout failed:", error);
+            alert("Could not process checkout. Please try again.");
+        }
+    }
+
+    // Updated export function to get data from the backend
+    function exportInventory() {
+        window.location.href = '/export_inventory';
+    }
+
+    function downloadReceiptAsPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const receiptSummary = document.getElementById("receipt-summary").innerText;
+        doc.text("StarSon POS Receipt", 10, 10);
+        doc.text(receiptSummary, 10, 20);
+        doc.save("receipt.pdf");
+    }
+
+    function googleTranslateElementInit() {
+      new google.translate.TranslateElement({ pageLanguage: 'en' }, 'google_translate_element');
+    }
+  </script>
+</body>
+</html>
